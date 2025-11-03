@@ -355,7 +355,7 @@ int2048 operator*(int2048 a, const int2048 &b) {
     return a;
 }
 
-// Division
+// Division using long division algorithm
 int2048 &int2048::operator/=(const int2048 &other) {
     bool result_negative = negative != other.negative;
     
@@ -364,7 +364,8 @@ int2048 &int2048::operator/=(const int2048 &other) {
     int2048 divisor = other;
     divisor.negative = false;
     
-    if (compare_abs(dividend, divisor) < 0) {
+    int cmp = compare_abs(dividend, divisor);
+    if (cmp < 0) {
         // Result is 0 or -1 depending on signs
         if (result_negative) {
             *this = int2048(-1);
@@ -374,38 +375,77 @@ int2048 &int2048::operator/=(const int2048 &other) {
         return *this;
     }
     
-    // Binary search for quotient
-    int2048 left(0), right = dividend;
-    int2048 one(1);
-    
-    while (left < right) {
-        int2048 mid = left + right;
-        mid += one;
-        mid.divide_by_2();
-        
-        int2048 product = mid * divisor;
-        if (product <= dividend) {
-            left = mid;
-        } else {
-            right = mid - one;
-        }
+    if (cmp == 0) {
+        *this = int2048(result_negative ? -1 : 1);
+        return *this;
     }
     
-    *this = left;
+    // Long division algorithm
+    int2048 quotient(0);
+    int2048 remainder(0);
+    
+    // Process from most significant to least significant digit
+    for (int i = dividend.digits.size() - 1; i >= 0; --i) {
+        // Shift remainder left by one base position and add current digit
+        remainder.digits.insert(remainder.digits.begin(), dividend.digits[i]);
+        remainder.remove_leading_zeros();
+        
+        if (compare_abs(remainder, divisor) < 0) {
+            quotient.digits.insert(quotient.digits.begin(), 0);
+            continue;
+        }
+        
+        // Binary search for the quotient digit
+        int left = 0, right = BASE - 1;
+        while (left < right) {
+            int mid = (left + right + 1) / 2;
+            int2048 temp = divisor;
+            // Multiply divisor by mid
+            long long carry = 0;
+            for (size_t j = 0; j < temp.digits.size(); ++j) {
+                long long prod = (long long)temp.digits[j] * mid + carry;
+                temp.digits[j] = prod % BASE;
+                carry = prod / BASE;
+            }
+            if (carry > 0) {
+                temp.digits.push_back(carry);
+            }
+            
+            if (compare_abs(temp, remainder) <= 0) {
+                left = mid;
+            } else {
+                right = mid - 1;
+            }
+        }
+        
+        quotient.digits.insert(quotient.digits.begin(), left);
+        
+        // Subtract left * divisor from remainder
+        int2048 temp = divisor;
+        long long carry = 0;
+        for (size_t j = 0; j < temp.digits.size(); ++j) {
+            long long prod = (long long)temp.digits[j] * left + carry;
+            temp.digits[j] = prod % BASE;
+            carry = prod / BASE;
+        }
+        if (carry > 0) {
+            temp.digits.push_back(carry);
+        }
+        remainder = sub_abs(remainder, temp);
+    }
+    
+    *this = quotient;
+    remove_leading_zeros();
     
     // Handle floor division for negative results
     if (result_negative) {
-        int2048 product = left * divisor;
-        if (product != dividend) {
-            // Need to round down (more negative)
-            *this = left + one;
-            this->negative = true;
-        } else {
-            this->negative = true;
+        if (!(remainder.digits.size() == 1 && remainder.digits[0] == 0)) {
+            // Has remainder, need to round down (more negative)
+            *this += int2048(1);
         }
+        this->negative = true;
     }
     
-    remove_leading_zeros();
     return *this;
 }
 
