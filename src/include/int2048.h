@@ -19,7 +19,18 @@
 
 namespace sjtu {
 class int2048 {
-  // todo
+private:
+  std::vector<int> digits; // stored in reverse order (least significant first)
+  bool negative;
+  
+  void remove_leading_zeros();
+  static int compare_abs(const int2048 &a, const int2048 &b);
+  static int2048 add_abs(const int2048 &a, const int2048 &b);
+  static int2048 sub_abs(const int2048 &a, const int2048 &b);
+  void divide_by_2();
+  static int2048 multiply_fft(const int2048 &a, const int2048 &b);
+  static void fft(std::vector<std::complex<double>> &a, bool invert);
+  
 public:
   // Constructors
   int2048();
